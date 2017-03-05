@@ -1,7 +1,9 @@
-# upickle-akka
+# [WIP]upickle-akka
 Autoderivation of Akka-HTTP marshallers/unmarshallers with uPickle
 
-# Usage 
+# Usage
+
+Currently unpublished and very much beta.
 
 Full example (also, currently the only test. Hopefully, not for long): com.tkroman.akka.upickle.Main
 
