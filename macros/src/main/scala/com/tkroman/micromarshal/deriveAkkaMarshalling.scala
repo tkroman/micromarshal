@@ -27,19 +27,23 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
     val usePickler = Term.Name(picklerName)
     val rwType = Type.Name(s"$usePickler.ReadWriter")
 
-    def mkImplicitDef(name: Type.Name, typarams: Seq[Type.Param]) = {
+    def mkImplicitDef(name: Type.Name, typarams: Seq[Type.Param], companion: Option[Defn.Object]) = {
       val apType  = Type.Apply(name, typarams.map(n => Type.Name(n.name.value)))
       val umType  = Type.Apply(Type.Name(unmarshallerTypeName), Seq(apType))
       val mType   = Type.Apply(Type.Name(marshallerTypeName), Seq(apType))
       val typaramsWithRWCtxBounds = typarams.map(tp => tp.copy(cbounds = tp.cbounds :+ Type.Name(rwTypeName)))
+      val rwTypeAp = Type.Apply(rwType, Seq(apType))
+      val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
 
-      Seq(
-        // implicit rw def
+      val rw = MkImplictiRwDefn(companion, rwTypeStx) {
         q"""
-        implicit def upickleRw[..$typarams]: $rwType[$apType] = {
+        implicit def upickleRw[..$typarams]: $rwTypeAp = {
           $usePickler.macroRW[$apType]
         }
-        """,
+        """
+      }
+
+      rw ++ Seq(
         // implicit marshaller def
         q"""
         implicit def akkaMarshaller[..$typaramsWithRWCtxBounds]: $mType = {
@@ -60,17 +64,21 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       )
     }
 
-    def mkImplicitVal(typeName: Type.Name) = {
+    def mkImplicitVal(typeName: Type.Name, companion: Option[Defn.Object]) = {
       val umApType  = Type.Apply(Type.Name(unmarshallerTypeName), Seq(typeName))
       val mApType   = Type.Apply(Type.Name(marshallerTypeName), Seq(typeName))
+      val rwTypeAp = Type.Apply(rwType, Seq(typeName))
+      val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
 
-      Seq(
-        // implicit rw val
+      val rw = MkImplictiRwDefn(companion, rwTypeStx) {
         q"""
-        implicit val upickleRw: $rwType[$typeName] = {
+        implicit val upickleRw: $rwTypeAp = {
           $usePickler.macroRW[$typeName]
         }
-        """,
+        """
+      }
+
+      rw ++ Seq(
         // implicit marshaller val
         q"""
         implicit val akkaMarshaller: $mApType = {
@@ -91,24 +99,24 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       )
     }
 
-    def mkImplicit(name: Type.Name, typarams: Seq[Type.Param]): Seq[Stat] = {
+    def mkImplicit(name: Type.Name, typarams: Seq[Type.Param], companion: Option[Defn.Object]): Seq[Stat] = {
       if (typarams.isEmpty) {
-        mkImplicitVal(name)
+        mkImplicitVal(name, companion)
       } else {
-        mkImplicitDef(name, typarams)
+        mkImplicitDef(name, typarams, companion)
       }
     }
 
     val withGenerated = defn match {
       // companion object exists
       case ClassOrSealedTraitWithObject(cls, name, typarams, companion) =>
-        val implUm = mkImplicit(name, typarams)
+        val implUm = mkImplicit(name, typarams, Some(companion))
         val templateStats = implUm ++ companion.templ.stats.getOrElse(Nil)
         val newCompanion = companion.copy(templ = companion.templ.copy(stats = Some(templateStats)))
         Term.Block(Seq(cls, newCompanion))
 
       case ClassOrSealedTraitWithoutObject(cls, name, typarams) =>
-        val implUm = mkImplicit(name, typarams)
+        val implUm = mkImplicit(name, typarams, None)
         val companion   = q"object ${Term.Name(name.value)} { ..$implUm }"
         Term.Block(Seq(cls, companion))
 
@@ -116,6 +124,8 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         println(defn.structure)
         abort("@unmarshal must annotate a class or a sealed trait.")
     }
+
+//    println(withGenerated)
 
     withGenerated
   }
@@ -142,5 +152,25 @@ object ClassOrSealedTraitWithoutObject {
         Some((c, c.name, c.tparams))
       case _ => None
     }
+  }
+}
+
+object MkImplictiRwDefn {
+  // TODO semantic API would be really nice here
+  def apply(companion: Option[Defn.Object], expectedRwTypeStx: String)(mkImplicit: => Stat): Seq[Stat] = {
+    def isImplicitRwDefinition(mods: Seq[Mod], tpe: Type) = {
+      mods.exists(_.syntax == "implicit") && expectedRwTypeStx == tpe.syntax
+    }
+
+    companion.filterNot {
+      case Defn.Object(_, _, Template(_, _, _, Some(stats))) =>
+        stats.exists {
+          case Defn.Val(mods, _, Some(tpe), _) => isImplicitRwDefinition(mods, tpe)
+          case Defn.Var(mods, _, Some(tpe), _) => isImplicitRwDefinition(mods, tpe)
+          case Defn.Def(mods, _, _, _, Some(tpe), _) => isImplicitRwDefinition(mods, tpe)
+          case _ => false
+        }
+      case _ => false
+    }.map(_ => Seq(mkImplicit)).getOrElse(Seq.empty)
   }
 }

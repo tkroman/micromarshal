@@ -34,6 +34,8 @@ case class TBool(b: Boolean) extends T
 case class X(a: String)
 object X {
   def f = 1
+
+  implicit val rw: upickle.default.ReadWriter[X] = upickle.default.macroRW[X]
 }
 
 object Main {
