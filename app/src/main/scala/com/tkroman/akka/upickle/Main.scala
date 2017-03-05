@@ -30,6 +30,12 @@ sealed trait T
 case class TInt(x: Int) extends T
 case class TBool(b: Boolean) extends T
 
+@deriveAkkaMarshalling
+case class X(a: String)
+object X {
+  def f = 1
+}
+
 object Main {
   implicit val system = ActorSystem()
   implicit val mat = ActorMaterializer()
@@ -38,6 +44,7 @@ object Main {
 
     // marshallable entities
     val c = C(1,2)
+    val x = X("a")
     val ta: T = TInt(1)
     val tb: T = TBool(true)
 
@@ -45,6 +52,11 @@ object Main {
       val mc = marshal(c, C.akkaMarshaller)
       val umc = unmarshal(mc, C.akkaUnmarshaller)
       assert(umc == c)
+
+      val mx = marshal(x, X.akkaMarshaller)
+      val umx = unmarshal(mx, X.akkaUnmarshaller)
+      assert(umx == x)
+      assert(X.f == 1)
 
       val mta = marshal(ta, T.akkaMarshaller)
       val umta = unmarshal(mta, T.akkaUnmarshaller)

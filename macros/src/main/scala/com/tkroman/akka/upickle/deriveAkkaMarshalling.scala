@@ -100,27 +100,15 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       }
     }
 
-    val r = defn match {
-      case Term.Block(Seq(trt @ Defn.Trait(_, name, typarams, _, _), companion: Defn.Object)) if trt.mods.exists(_.syntax == "sealed")=>
-        val implUm = mkImplicit(name, typarams)
-        val templateStats = implUm ++ companion.templ.stats.getOrElse(Nil)
-        val newCompanion = companion.copy(templ = companion.templ.copy(stats = Some(templateStats)))
-        Term.Block(Seq(trt, newCompanion))
-
-      case trt @ Defn.Trait(_, name, typarams, _, _) if trt.mods.exists(_.syntax == "sealed") =>
-        val implUm = mkImplicit(name, typarams)
-        val companion   = q"object ${Term.Name(name.value)} { ..$implUm }"
-        Term.Block(Seq(trt, companion))
-
+    val withGenerated = defn match {
       // companion object exists
-      case Term.Block(Seq(cls @ Defn.Class(_, name, typarams, _, _), companion: Defn.Object)) =>
+      case ClassOrSealedTraitWithObject(cls, name, typarams, companion) =>
         val implUm = mkImplicit(name, typarams)
         val templateStats = implUm ++ companion.templ.stats.getOrElse(Nil)
         val newCompanion = companion.copy(templ = companion.templ.copy(stats = Some(templateStats)))
         Term.Block(Seq(cls, newCompanion))
 
-      // companion object does not exists
-      case cls @ Defn.Class(_, name, typarams, _, _) =>
+      case ClassOrSealedTraitWithoutObject(cls, name, typarams) =>
         val implUm = mkImplicit(name, typarams)
         val companion   = q"object ${Term.Name(name.value)} { ..$implUm }"
         Term.Block(Seq(cls, companion))
@@ -130,6 +118,30 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         abort("@unmarshal must annotate a class or a sealed trait.")
     }
 
-    r
+    withGenerated
+  }
+}
+
+object ClassOrSealedTraitWithObject {
+  def unapply(arg: Term.Block): Option[(Defn, Type.Name, Seq[Type.Param], Defn.Object)] = {
+    arg match {
+      case Term.Block(Seq(t: Defn.Trait, comp: Defn.Object)) if t.mods.exists(_.syntax == "sealed") =>
+        Some((t, t.name, t.tparams, comp))
+      case Term.Block(Seq(c: Defn.Class, comp: Defn.Object)) =>
+        Some((c, c.name, c.tparams, comp))
+      case _ => None
+    }
+  }
+}
+
+object ClassOrSealedTraitWithoutObject {
+  def unapply(arg: Defn): Option[(Defn, Type.Name, Seq[Type.Param])] = {
+    arg match {
+      case t: Defn.Trait if t.mods.exists(_.syntax == "sealed") =>
+        Some((t, t.name, t.tparams))
+      case c: Defn.Class =>
+        Some((c, c.name, c.tparams))
+      case _ => None
+    }
   }
 }
