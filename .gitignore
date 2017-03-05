@@ -8,6 +8,7 @@
 *.zip
 *.tar.gz
 *.rar
+.idea
 hs_err_pid*
 target/
 pom.xml.tag
