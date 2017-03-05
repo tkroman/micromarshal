@@ -1,8 +1,7 @@
-package com.tkroman.akka.upickle
+package com.tkroman.micromarshal
 
-import scala.meta._
 import scala.collection.immutable.Seq
-import upickle.AttributeTagged
+import scala.meta._
 
 // TODO dedup
 class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.annotation.StaticAnnotation {
@@ -13,7 +12,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
     val rwTypeName            = "_root_.upickle.default.ReadWriter"
     val marshallerMediaType   = {
       Term.Select(
-        Term.Name("akka.http.scaladsl.model.MediaTypes"),
+        Term.Name("_root_.akka.http.scaladsl.model.MediaTypes"),
         Term.Name("`application/json`")
       )
     }

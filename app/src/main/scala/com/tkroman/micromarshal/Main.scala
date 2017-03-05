@@ -1,4 +1,4 @@
-package com.tkroman.akka.upickle
+package com.tkroman.micromarshal
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -8,6 +8,7 @@ import akka.http.scaladsl.marshalling.{Marshalling, ToEntityMarshaller}
 import akka.http.scaladsl.model.MessageEntity
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.stream.ActorMaterializer
+import upickle.default._
 
 object OptionPickler extends upickle.AttributeTagged {
   import upickle.Js
@@ -22,7 +23,7 @@ object OptionPickler extends upickle.AttributeTagged {
   }
 }
 
-@deriveAkkaMarshalling("com.tkroman.akka.upickle.OptionPickler")
+@deriveAkkaMarshalling("com.tkroman.micromarshal.OptionPickler")
 case class C(x: Int, y: Int)
 
 @deriveAkkaMarshalling
