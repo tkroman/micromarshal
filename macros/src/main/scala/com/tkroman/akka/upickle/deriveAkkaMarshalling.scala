@@ -2,17 +2,31 @@ package com.tkroman.akka.upickle
 
 import scala.meta._
 import scala.collection.immutable.Seq
+import upickle.AttributeTagged
 
 // TODO dedup
-class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
-  inline def apply(defn: Any): Any = meta {
+class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.annotation.StaticAnnotation {
 
+  inline def apply(defn: Any): Any = meta {
     val unmarshallerTypeName  = "_root_.akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller"
     val marshallerTypeName    = "_root_.akka.http.scaladsl.marshalling.ToEntityMarshaller"
     val rwTypeName            = "_root_.upickle.default.ReadWriter"
-    val marshallerMediaType   = Term.Select(
-                                  Term.Name("akka.http.scaladsl.model.MediaTypes"),
-                                  Term.Name("`application/json`"))
+    val marshallerMediaType   = {
+      Term.Select(
+        Term.Name("akka.http.scaladsl.model.MediaTypes"),
+        Term.Name("`application/json`")
+      )
+    }
+
+    val picklerName = this match {
+      case q"new $_(${Lit(p: String)})" =>
+        s"_root_.$p"
+      case q"new $_()" =>
+        // TODO read this from default arg?
+        "_root_.upickle.default"
+    }
+    val usePickler = Term.Name(picklerName)
+    val rwType = Type.Name(s"$usePickler.ReadWriter")
 
     def mkImplicitDef(name: Type.Name, typarams: Seq[Type.Param]) = {
       val apType  = Type.Apply(name, typarams.map(n => Type.Name(n.name.value)))
@@ -23,8 +37,8 @@ class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
       Seq(
         // implicit rw def
         q"""
-        implicit def upickleRw[..$typarams]: _root_.upickle.default.ReadWriter[$apType] = {
-          _root_.upickle.default.macroRW[$apType]
+        implicit def upickleRw[..$typarams]: $rwType[$apType] = {
+          $usePickler.macroRW[$apType]
         }
         """,
         // implicit marshaller def
@@ -32,7 +46,7 @@ class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
         implicit def akkaMarshaller[..$typaramsWithRWCtxBounds]: $mType = {
           _root_.akka.http.scaladsl.marshalling.Marshaller
              .stringMarshaller($marshallerMediaType)
-             .compose[$apType](t => _root_.upickle.default.write(t))
+             .compose[$apType](t => $usePickler.write(t))
         }
         """,
         // implicit unmarshaller def
@@ -40,7 +54,7 @@ class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
         implicit def akkaUnmarshaller[..$typaramsWithRWCtxBounds]: $umType = {
           _root_.akka.http.scaladsl.unmarshalling.Unmarshaller
             .byteStringUnmarshaller.mapWithCharset { (str, charset) =>
-              _root_.upickle.default.read[$apType](str.decodeString(charset.nioCharset()))
+              $usePickler.read[$apType](str.decodeString(charset.nioCharset()))
             }
         }
         """
@@ -54,8 +68,8 @@ class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
       Seq(
         // implicit rw val
         q"""
-        implicit val upickleRw: _root_.upickle.default.ReadWriter[$typeName] = {
-          _root_.upickle.default.macroRW[$typeName]
+        implicit val upickleRw: $rwType[$typeName] = {
+          $usePickler.macroRW[$typeName]
         }
         """,
         // implicit marshaller val
@@ -63,7 +77,7 @@ class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
         implicit val akkaMarshaller: $mApType = {
           _root_.akka.http.scaladsl.marshalling.Marshaller
             .stringMarshaller($marshallerMediaType)
-            .compose[$typeName](t => _root_.upickle.default.write(t))
+            .compose[$typeName](t => $usePickler.write(t))
         }
         """,
         // implicit unmarshaller val
@@ -71,7 +85,7 @@ class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
         implicit val akkaUnmarshaller: $umApType = {
           _root_.akka.http.scaladsl.unmarshalling.Unmarshaller
             .byteStringUnmarshaller.mapWithCharset { (str, charset) =>
-              _root_.upickle.default.read[$typeName](str.decodeString(charset.nioCharset()))
+              $usePickler.read[$typeName](str.decodeString(charset.nioCharset()))
             }
         }
         """
@@ -115,8 +129,6 @@ class akkaBiMarshalling extends scala.annotation.StaticAnnotation {
         println(defn.structure)
         abort("@unmarshal must annotate a class or a sealed trait.")
     }
-
-    println(r)
 
     r
   }

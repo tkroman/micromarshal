@@ -4,15 +4,28 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import akka.actor.ActorSystem
-import akka.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
-import akka.http.scaladsl.model.{ContentTypes, MessageEntity}
+import akka.http.scaladsl.marshalling.{Marshalling, ToEntityMarshaller}
+import akka.http.scaladsl.model.MessageEntity
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.stream.ActorMaterializer
 
-@akkaBiMarshalling
+object OptionPickler extends upickle.AttributeTagged {
+  import upickle.Js
+  override implicit def OptionW[T: Writer]: Writer[Option[T]] = Writer {
+    case None    => Js.Null
+    case Some(s) => implicitly[Writer[T]].write(s)
+  }
+
+  override implicit def OptionR[T: Reader]: Reader[Option[T]] = Reader {
+    case Js.Null     => None
+    case v: Js.Value => Some(implicitly[Reader[T]].read.apply(v))
+  }
+}
+
+@deriveAkkaMarshalling("com.tkroman.akka.upickle.OptionPickler")
 case class C(x: Int, y: Int)
 
-@akkaBiMarshalling
+@deriveAkkaMarshalling
 sealed trait T
 case class TInt(x: Int) extends T
 case class TBool(b: Boolean) extends T
