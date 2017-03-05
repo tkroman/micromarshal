@@ -35,7 +35,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       val rwTypeAp = Type.Apply(rwType, Seq(apType))
       val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
 
-      val rw = MkImplictiRwDefn(companion, rwTypeStx) {
+      val rw = MkImplicitRwDefn(companion, rwTypeStx) {
         q"""
         implicit def upickleRw[..$typarams]: $rwTypeAp = {
           $usePickler.macroRW[$apType]
@@ -70,7 +70,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       val rwTypeAp = Type.Apply(rwType, Seq(typeName))
       val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
 
-      val rw = MkImplictiRwDefn(companion, rwTypeStx) {
+      val rw = MkImplicitRwDefn(companion, rwTypeStx) {
         q"""
         implicit val upickleRw: $rwTypeAp = {
           $usePickler.macroRW[$typeName]
@@ -155,7 +155,7 @@ object ClassOrSealedTraitWithoutObject {
   }
 }
 
-object MkImplictiRwDefn {
+object MkImplicitRwDefn {
   // TODO semantic API would be really nice here
   def apply(companion: Option[Defn.Object], expectedRwTypeStx: String)(mkImplicit: => Stat): Seq[Stat] = {
     def isImplicitRwDefinition(mods: Seq[Mod], tpe: Type) = {
