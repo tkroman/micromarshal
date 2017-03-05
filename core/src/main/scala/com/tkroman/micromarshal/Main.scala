@@ -8,7 +8,6 @@ import akka.http.scaladsl.marshalling.{Marshalling, ToEntityMarshaller}
 import akka.http.scaladsl.model.MessageEntity
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.stream.ActorMaterializer
-import upickle.default._
 
 object OptionPickler extends upickle.AttributeTagged {
   import upickle.Js
