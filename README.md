@@ -1,4 +1,4 @@
-# [WIP]upickle-akka
+# [WIP]micromarshal
 Autoderivation of Akka-HTTP marshallers/unmarshallers with [uPickle](http://www.lihaoyi.com/upickle-pprint/upickle)
 
 # Usage
