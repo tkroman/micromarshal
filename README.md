@@ -1,32 +1,85 @@
-# [WIP]micromarshal
-Autoderivation of Akka-HTTP marshallers/unmarshallers with [uPickle](http://www.lihaoyi.com/upickle-pprint/upickle)
+# micromarshal
+Autoderivation of Akka-HTTP marshallers/unmarshallers with [uPickle](http://www.lihaoyi.com/upickle-pprint/upickle) in < 200 LOC.
 
-# Usage
+## Usage
 
-Currently unpublished and very much beta.
+Very much beta. Only Scala 2.12 is supported.
 
-Full example (also, currently the only test. Hopefully, not for long): com.tkroman.akka.upickle.Main
+`"com.tkroman" %% "micromarshal" % "0.0.3"`
 
-In short, just slap `@com.tkroman.akka.upickle.deriveAkkaMarshalling` on your case class or sealed trait to get an automatic upickle-powered JSON encoding/decoding + Akka HTTP (un)marshallers.
+In order to expand macro annotations client projects should also have these options enabled:
+
+```scala
+lazy val expandMacroAnnotations: Seq[Def.Setting[_]] = Seq(
+  addCompilerPlugin(
+    ("org.scalameta" % "paradise" % "3.0.0-M7").cross(CrossVersion.full)
+  ),
+
+  libraryDependencies +=
+    "org.scalameta" %% "scalameta" % "1.6.0" % Provided,
+
+  scalacOptions += "-Xplugin-require:macroparadise",
+
+  // macroparadise plugin doesn't work in repl yet.
+  scalacOptions in (Compile, console) := Seq(),
+
+  // macroparadise doesn't work with scaladoc yet.
+  sources in (Compile, doc) := Nil
+)
+```
+
+Full example (also, currently the only test. Hopefully, not for long): com.tkroman.micromarshal.TestRun
+
+In short: just slap `@com.tkroman.micromarshal.deriveAkkaMarshalling` on your case class
+or sealed trait to get an automatic upickle-powered JSON encoding/decoding support + Akka HTTP (un)marshallers.
+
+```scala
+import com.tkroman.micromarshal.deriveAkkaMarshalling
+
+@deriveAkkaMarshalling
+case class Foo(str: String)
+```
+
+so later in your Akka-HTTP router you can do this:
+
+```scala
+get {
+  path("foo") {
+    complete(Foo("content"))
+  }
+}
+```
+
+## Hygiene
+
+Micromarshal does not rely on generation of fresh names and does not employ typechecking of any kind
+to ensure that companion objects of classes already contain implicit `ReadWriter` definitions.
+
+Instead, there is a simple convention:
+if the companion object contains a definition of type `upickle.default.ReadWriter[A]`
+(or `custom.pickler.ReadWriter[A]`),
+no `ReadWriter` implicit is generated. This might come in handy when a need arises to
+[manually define and instance for a sealed hierarchy](http://www.lihaoyi.com/upickle-pprint/upickle/#ManualSealedTraitPicklers).
+
+## Custom (un)picklers
 
 Consistently with uPickle, `deriveAkkaMarshalling` accepts a custom pickler. For example:
 
 ```scala
 package a.b.c
 
-// borrowed from http://www.lihaoyi.com/upickle-pprint/upickle/#CustomConfiguration
-object OptionPickler extends upickle.AttributeTagged {
-  override implicit def OptionW[T: Writer]: Writer[Option[T]] = Writer {
-    case None    => Js.Null
-    case Some(s) => implicitly[Writer[T]].write(s)
-  }
-
-  override implicit def OptionR[T: Reader]: Reader[Option[T]] = Reader {
-    case Js.Null     => None
-    case v: Js.Value => Some(implicitly[Reader[T]].read.apply(v))
-  }
+object CustomPickler extends upickle.AttributeTagged {
+  // custom pickling here
 }
 
 @deriveAkkaMarshalling("a.b.c.OptionPickler")
 case class Foo(x: Int)
 ```
+
+## TODO
+
+* Proper testing
+
+* 2.11 support (easy)
+
+* Abstraction over JSON library (would like to support circe)

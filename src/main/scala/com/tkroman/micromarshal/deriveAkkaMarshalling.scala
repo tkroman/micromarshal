@@ -3,19 +3,18 @@ package com.tkroman.micromarshal
 import scala.collection.immutable.Seq
 import scala.meta._
 
-// TODO dedup
 class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.annotation.StaticAnnotation {
 
   inline def apply(defn: Any): Any = meta {
     val unmarshallerTypeName  = "_root_.akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller"
     val marshallerTypeName    = "_root_.akka.http.scaladsl.marshalling.ToEntityMarshaller"
-    val rwTypeName            = "_root_.upickle.default.ReadWriter"
     val marshallerMediaType   = {
       Term.Select(
-        Term.Name("_root_.akka.http.scaladsl.model.MediaTypes"),
-        Term.Name("`application/json`")
+        Term.Name("_root_.akka.http.scaladsl.model.MediaTypes"), Term.Name("`application/json`")
       )
     }
+    val unmarshallerMethod = q"_root_.akka.http.scaladsl.unmarshalling.Unmarshaller.byteStringUnmarshaller"
+    val marshallerMethod = q"_root_.akka.http.scaladsl.marshalling.Marshaller.stringMarshaller"
 
     val picklerName = this match {
       case q"new $_(${Lit(p: String)})" =>
@@ -24,6 +23,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         // TODO read this from default arg?
         "_root_.upickle.default"
     }
+
     val usePickler = Term.Name(picklerName)
     val rwType = Type.Name(s"$usePickler.ReadWriter")
 
@@ -31,7 +31,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       val apType  = Type.Apply(name, typarams.map(n => Type.Name(n.name.value)))
       val umType  = Type.Apply(Type.Name(unmarshallerTypeName), Seq(apType))
       val mType   = Type.Apply(Type.Name(marshallerTypeName), Seq(apType))
-      val typaramsWithRWCtxBounds = typarams.map(tp => tp.copy(cbounds = tp.cbounds :+ Type.Name(rwTypeName)))
+      val typaramsWithRWCtxBounds = typarams.map(tp => tp.copy(cbounds = tp.cbounds :+ rwType))
       val rwTypeAp = Type.Apply(rwType, Seq(apType))
       val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
 
@@ -47,16 +47,14 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         // implicit marshaller def
         q"""
         implicit def akkaMarshaller[..$typaramsWithRWCtxBounds]: $mType = {
-          _root_.akka.http.scaladsl.marshalling.Marshaller
-             .stringMarshaller($marshallerMediaType)
+          $marshallerMethod($marshallerMediaType)
              .compose[$apType](t => $usePickler.write(t))
         }
         """,
         // implicit unmarshaller def
         q"""
         implicit def akkaUnmarshaller[..$typaramsWithRWCtxBounds]: $umType = {
-          _root_.akka.http.scaladsl.unmarshalling.Unmarshaller
-            .byteStringUnmarshaller.mapWithCharset { (str, charset) =>
+          $unmarshallerMethod.mapWithCharset { (str, charset) =>
               $usePickler.read[$apType](str.decodeString(charset.nioCharset()))
             }
         }
@@ -67,7 +65,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
     def mkImplicitVal(typeName: Type.Name, companion: Option[Defn.Object]) = {
       val umApType  = Type.Apply(Type.Name(unmarshallerTypeName), Seq(typeName))
       val mApType   = Type.Apply(Type.Name(marshallerTypeName), Seq(typeName))
-      val rwTypeAp = Type.Apply(rwType, Seq(typeName))
+      val rwTypeAp  = Type.Apply(rwType, Seq(typeName))
       val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
 
       val rw = MkImplicitRwDefn(companion, rwTypeStx) {
@@ -82,18 +80,15 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         // implicit marshaller val
         q"""
         implicit val akkaMarshaller: $mApType = {
-          _root_.akka.http.scaladsl.marshalling.Marshaller
-            .stringMarshaller($marshallerMediaType)
-            .compose[$typeName](t => $usePickler.write(t))
+          $marshallerMethod($marshallerMediaType).compose[$typeName](t => $usePickler.write(t))
         }
         """,
         // implicit unmarshaller val
         q"""
         implicit val akkaUnmarshaller: $umApType = {
-          _root_.akka.http.scaladsl.unmarshalling.Unmarshaller
-            .byteStringUnmarshaller.mapWithCharset { (str, charset) =>
-              $usePickler.read[$typeName](str.decodeString(charset.nioCharset()))
-            }
+          $unmarshallerMethod.mapWithCharset { (str, charset) =>
+            $usePickler.read[$typeName](str.decodeString(charset.nioCharset()))
+          }
         }
         """
       )
@@ -125,25 +120,25 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         abort("@unmarshal must annotate a class or a sealed trait.")
     }
 
-//    println(withGenerated)
-
     withGenerated
   }
 }
 
-object ClassOrSealedTraitWithObject {
+private[micromarshal] object ClassOrSealedTraitWithObject {
   def unapply(arg: Term.Block): Option[(Defn, Type.Name, Seq[Type.Param], Defn.Object)] = {
     arg match {
       case Term.Block(Seq(t: Defn.Trait, comp: Defn.Object)) if t.mods.exists(_.syntax == "sealed") =>
         Some((t, t.name, t.tparams, comp))
+
       case Term.Block(Seq(c: Defn.Class, comp: Defn.Object)) =>
         Some((c, c.name, c.tparams, comp))
+
       case _ => None
     }
   }
 }
 
-object ClassOrSealedTraitWithoutObject {
+private[micromarshal] object ClassOrSealedTraitWithoutObject {
   def unapply(arg: Defn): Option[(Defn, Type.Name, Seq[Type.Param])] = {
     arg match {
       case t: Defn.Trait if t.mods.exists(_.syntax == "sealed") =>
@@ -155,7 +150,7 @@ object ClassOrSealedTraitWithoutObject {
   }
 }
 
-object MkImplicitRwDefn {
+private[micromarshal] object MkImplicitRwDefn {
   // TODO semantic API would be really nice here
   def apply(companion: Option[Defn.Object], expectedRwTypeStx: String)(mkImplicit: => Stat): Seq[Stat] = {
     def isImplicitRwDefinition(mods: Seq[Mod], tpe: Type) = {
