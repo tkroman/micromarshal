@@ -26,12 +26,16 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
 
     val usePickler = Term.Name(picklerName)
     val rwType = Type.Name(s"$usePickler.ReadWriter")
+    val rType = Type.Name(s"$usePickler.Reader")
+    val wType = Type.Name(s"$usePickler.Writer")
 
     def mkImplicitDef(name: Type.Name, typarams: Seq[Type.Param], companion: Option[Defn.Object]) = {
       val apType  = Type.Apply(name, typarams.map(n => Type.Name(n.name.value)))
       val umType  = Type.Apply(Type.Name(unmarshallerTypeName), Seq(apType))
       val mType   = Type.Apply(Type.Name(marshallerTypeName), Seq(apType))
       val typaramsWithRWCtxBounds = typarams.map(tp => tp.copy(cbounds = tp.cbounds :+ rwType))
+      val typaramsWithRCtxBounds = typarams.map(tp => tp.copy(cbounds = tp.cbounds :+ rType))
+      val typaramsWithWCtxBounds = typarams.map(tp => tp.copy(cbounds = tp.cbounds :+ wType))
       val rwTypeAp = Type.Apply(rwType, Seq(apType))
       val rwTypeStx = s"ReadWriter[${apType.syntax}]"
 
@@ -46,14 +50,14 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       rw ++ Seq(
         // implicit marshaller def
         q"""
-        implicit def akkaMarshaller[..$typaramsWithRWCtxBounds]: $mType = {
+        implicit def akkaMarshaller[..$typaramsWithWCtxBounds]: $mType = {
           $marshallerMethod($marshallerMediaType)
              .compose[$apType](t => $usePickler.write(t))
         }
         """,
         // implicit unmarshaller def
         q"""
-        implicit def akkaUnmarshaller[..$typaramsWithRWCtxBounds]: $umType = {
+        implicit def akkaUnmarshaller[..$typaramsWithRCtxBounds]: $umType = {
           $unmarshallerMethod.mapWithCharset { (str, charset) =>
               $usePickler.read[$apType](str.decodeString(charset.nioCharset()))
             }
@@ -120,8 +124,6 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         abort("@unmarshal must annotate a class or a sealed trait.")
     }
 
-    println(withGenerated)
-
     withGenerated
   }
 }
@@ -156,7 +158,6 @@ private[micromarshal] object MkImplicitRwDefn {
   // TODO semantic API would be really nice here
   def apply(companion: Option[Defn.Object], expectedRwTypeStx: String)(mkImplicit: => Stat): Seq[Stat] = {
     def isImplicitRwDefinition(mods: Seq[Mod], tpe: Type) = {
-      println(expectedRwTypeStx + " :: " + tpe.syntax)
       mods.exists(_.syntax == "implicit") && expectedRwTypeStx == tpe.syntax
     }
 

@@ -5,7 +5,7 @@ lazy val scalametaV = "1.6.0"
 val settings = Seq(
   name := "micromarshal",
   organization := "com.tkroman",
-  version := "0.0.7",
+  version := "0.0.8",
 
   scalaVersion := "2.12.1",
   crossScalaVersions := Seq("2.11.8", "2.12.1"),

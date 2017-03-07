@@ -15,6 +15,9 @@ package object micromarshal {
   }
 
   @deriveAkkaMarshalling("com.tkroman.micromarshal.OptionPickler")
+  case class SimpleNoCompanionCustomPickler(x: Int, y: Int)
+
+  @deriveAkkaMarshalling
   case class SimpleNoCompanion(x: Int, y: Int)
 
   @deriveAkkaMarshalling
