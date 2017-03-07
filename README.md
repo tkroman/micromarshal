@@ -3,6 +3,8 @@ Autoderivation of Akka-HTTP marshallers/unmarshallers with [uPickle](http://www.
 
 ## Usage
 
+### Dependency
+
 Very much beta. Cross-build for scala 2.11/2.12.
 
 `"com.tkroman" %% "micromarshal" % "0.0.7"`
@@ -28,7 +30,9 @@ lazy val expandMacroAnnotations: Seq[Def.Setting[_]] = Seq(
 )
 ```
 
-[Full example](src/test/scala/com/tkroman/micromarshal/MarshallingSuite.scala)
+### Code
+
+[Full example in tests](src/test/scala/com/tkroman/micromarshal/MarshallingSuite.scala)
 
 In short: just slap `@com.tkroman.micromarshal.deriveAkkaMarshalling` on your case class
 or sealed trait to get an automatic upickle-powered JSON encoding/decoding support + Akka HTTP (un)marshallers.
