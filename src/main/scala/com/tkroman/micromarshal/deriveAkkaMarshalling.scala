@@ -37,7 +37,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
 
       val rw = MkImplicitRwDefn(companion, rwTypeStx) {
         q"""
-        implicit def upickleRw[..$typarams]: $rwTypeAp = {
+        implicit def upickleRw[..$typaramsWithRWCtxBounds]: $rwTypeAp = {
           $usePickler.macroRW[$apType]
         }
         """
@@ -120,6 +120,8 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
         abort("@unmarshal must annotate a class or a sealed trait.")
     }
 
+    println(withGenerated)
+
     withGenerated
   }
 }
@@ -154,18 +156,25 @@ private[micromarshal] object MkImplicitRwDefn {
   // TODO semantic API would be really nice here
   def apply(companion: Option[Defn.Object], expectedRwTypeStx: String)(mkImplicit: => Stat): Seq[Stat] = {
     def isImplicitRwDefinition(mods: Seq[Mod], tpe: Type) = {
+      println(expectedRwTypeStx + " :: " + tpe.syntax)
       mods.exists(_.syntax == "implicit") && expectedRwTypeStx == tpe.syntax
     }
 
-    companion.filterNot {
-      case Defn.Object(_, _, Template(_, _, _, Some(stats))) =>
-        stats.exists {
+    companion match {
+      case None =>
+        Seq(mkImplicit)
+      case Some(Defn.Object(_, _, Template(_, _, _, Some(stats)))) =>
+        val rwIsDefined = stats.exists {
           case Defn.Val(mods, _, Some(tpe), _) => isImplicitRwDefinition(mods, tpe)
           case Defn.Var(mods, _, Some(tpe), _) => isImplicitRwDefinition(mods, tpe)
           case Defn.Def(mods, _, _, _, Some(tpe), _) => isImplicitRwDefinition(mods, tpe)
           case _ => false
         }
-      case _ => false
-    }.map(_ => Seq(mkImplicit)).getOrElse(Seq.empty)
+        if (rwIsDefined) {
+          Seq.empty
+        } else {
+          Seq(mkImplicit)
+        }
+    }
   }
 }

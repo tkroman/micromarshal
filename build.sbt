@@ -5,7 +5,7 @@ lazy val scalametaV = "1.6.0"
 val settings = Seq(
   name := "micromarshal",
   organization := "com.tkroman",
-  version := "0.0.6",
+  version := "0.0.7",
 
   scalaVersion := "2.12.1",
   crossScalaVersions := Seq("2.11.8", "2.12.1"),
@@ -25,9 +25,14 @@ val settings = Seq(
   resolvers += Resolver.sonatypeRepo("releases"),
   resolvers += Resolver.bintrayIvyRepo("scalameta", "maven"),
 
-  libraryDependencies += "org.scalameta" %% "scalameta" % scalametaV % Provided,
-  libraryDependencies += "com.typesafe.akka" %% "akka-http" % akkaHttpV,
-  libraryDependencies += "com.lihaoyi" %% "upickle" % upickleV,
+  libraryDependencies ++= Seq(
+    "org.scalameta" %% "scalameta" % scalametaV % Provided,
+    "com.typesafe.akka" %% "akka-http" % akkaHttpV,
+    "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % Test,
+    "com.lihaoyi" %% "upickle" % upickleV,
+    "org.scalactic" %% "scalactic" % "3.0.1",
+    "org.scalatest" %% "scalatest" % "3.0.1" % Test
+  ),
 
   addCompilerPlugin("org.scalameta" % "paradise" % "3.0.0-M7" cross CrossVersion.full),
 
