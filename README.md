@@ -5,7 +5,7 @@ Autoderivation of Akka-HTTP marshallers/unmarshallers with [uPickle](http://www.
 
 Very much beta. Cross-build for scala 2.11/2.12.
 
-`"com.tkroman" %% "micromarshal" % "0.0.5"`
+`"com.tkroman" %% "micromarshal" % "0.0.6"`
 
 In order to expand macro annotations client projects should also have these options enabled:
 
