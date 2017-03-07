@@ -35,7 +35,8 @@ case class X(a: String)
 object X {
   def f = 1
 
-  implicit val rw: upickle.default.ReadWriter[X] = upickle.default.macroRW[X]
+  import upickle.default._
+  implicit val rw: ReadWriter[X] = upickle.default.macroRW[X]
 }
 
 object TestRun {

@@ -33,7 +33,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       val mType   = Type.Apply(Type.Name(marshallerTypeName), Seq(apType))
       val typaramsWithRWCtxBounds = typarams.map(tp => tp.copy(cbounds = tp.cbounds :+ rwType))
       val rwTypeAp = Type.Apply(rwType, Seq(apType))
-      val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
+      val rwTypeStx = s"ReadWriter[${apType.syntax}]"
 
       val rw = MkImplicitRwDefn(companion, rwTypeStx) {
         q"""
@@ -66,7 +66,7 @@ class deriveAkkaMarshalling(pickler: String = "upickle.default") extends scala.a
       val umApType  = Type.Apply(Type.Name(unmarshallerTypeName), Seq(typeName))
       val mApType   = Type.Apply(Type.Name(marshallerTypeName), Seq(typeName))
       val rwTypeAp  = Type.Apply(rwType, Seq(typeName))
-      val rwTypeStx = rwTypeAp.syntax.stripPrefix("_root_.")
+      val rwTypeStx = s"ReadWriter[${typeName.syntax}]"
 
       val rw = MkImplicitRwDefn(companion, rwTypeStx) {
         q"""

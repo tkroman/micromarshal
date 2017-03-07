@@ -3,9 +3,9 @@ Autoderivation of Akka-HTTP marshallers/unmarshallers with [uPickle](http://www.
 
 ## Usage
 
-Very much beta. Only Scala 2.12 is supported.
+Very much beta. Cross-build for scala 2.11/2.12.
 
-`"com.tkroman" %% "micromarshal" % "0.0.3"`
+`"com.tkroman" %% "micromarshal" % "0.0.5"`
 
 In order to expand macro annotations client projects should also have these options enabled:
 
@@ -79,7 +79,5 @@ case class Foo(x: Int)
 ## TODO
 
 * Proper testing
-
-* 2.11 support (easy)
 
 * Abstraction over JSON library (would like to support circe)
