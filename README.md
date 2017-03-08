@@ -1,4 +1,6 @@
 # micromarshal
+
+[![Join the chat at https://gitter.im/micromarshal/Lobby](https://badges.gitter.im/micromarshal/Lobby.svg)](https://gitter.im/micromarshal/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 Autoderivation of Akka-HTTP marshallers/unmarshallers with [uPickle](http://www.lihaoyi.com/upickle-pprint/upickle) in < 200 LOC.
 
 ## Usage
